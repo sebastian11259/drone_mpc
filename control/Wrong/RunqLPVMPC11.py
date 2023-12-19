@@ -1,11 +1,7 @@
 import time
 
-import pybullet as p
-import numpy as np
-
-
 from env.MPCAviary import MPCAviary
-from control.qLPV_MPC11 import MPC
+from control.Wrong.qLPV_MPC11 import MPC
 
 
 from drone_sim.gym_pybullet_drones.utils.enums import DroneModel
@@ -81,7 +77,7 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
 if __name__ == "__main__":
     mpc_file = "mpc.so"
     # track_path = "../assets/tracks/thesis-tracks/straight_track.csv"
-    track_path = "../assets/tracks/circle_track.csv"
+    track_path = "../../assets/tracks/circle_track.csv"
     gui = True
 
     i, t, t_, ct= run_mpc(track_path, mpc_file, gui)

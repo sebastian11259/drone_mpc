@@ -23,7 +23,7 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         ctrl_freq = ctrl_freq,
         track_path=track_path,
         drone_model=DroneModel.CF2P,
-        kt=10000
+        kt=1000
     )
 
     infos = []
@@ -42,9 +42,9 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
 
         obs = obs.tolist()
 
-        print("OBS: ", obs[0:3])
-        print("REF: ", ref_traj[0:3])
-        print("------------------------------------------------------------------------------------")
+        # print("OBS: ", obs[0:3])
+        # print("REF: ", ref_traj[0:3])
+        # print("------------------------------------------------------------------------------------")
 
         # print(obs)
         # print(ref_traj[0:13])
@@ -57,11 +57,7 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         quad_act, pred_traj = mpc.solve(ref_traj)
         compute_time += time.time() - start
 
-        # quad_act = np.array([quad_act[0], quad_act[2], quad_act[1], quad_act[3]])
-        # Perform simulation step
-        # quad_act=np.array([[14460.39996858],[14468.39996858],[14476.39996858],[14468.39996858]])
 
-        # print(quad_act, quad_act.shape)
 
         obs, reward, terminated, truncated, info = env.step(quad_act)
 

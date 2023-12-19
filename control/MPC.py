@@ -289,8 +289,8 @@ class MPC(object):
             "ipopt.acceptable_tol": 1e-5,
             "ipopt.max_iter": 500,
             "ipopt.warm_start_init_point": "yes",
-            "ipopt.print_level": 5,
-            "print_time": True
+            "ipopt.print_level": 0,
+            "print_time": False
         }
 
         # # TODO - generate a c code file

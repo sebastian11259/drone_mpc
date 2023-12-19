@@ -10,8 +10,8 @@ from drone_sim.gym_pybullet_drones.utils.enums import DroneModel
 
 
 def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
-    _T = 0.5
-    _dt = 0.02
+    _T = 1
+    _dt = 0.05
     _N = _T / _dt
     pyb_freq = 250
     ctrl_freq = 50
@@ -23,7 +23,7 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         ctrl_freq = ctrl_freq,
         track_path=track_path,
         drone_model=DroneModel.CF2P,
-        kt=100
+        kt=1000
     )
 
     infos = []
@@ -40,20 +40,13 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
 
         obs = obs.tolist()
 
-        # print(obs)
-        # print(ref_traj[0:13])
-
         ref_traj = obs + ref_traj
 
         start = time.time()
         quad_act, pred_traj = mpc.solve(ref_traj)
         compute_time += time.time() - start
 
-        # quad_act = np.array([quad_act[0], quad_act[2], quad_act[1], quad_act[3]])
-        # Perform simulation step
-        # quad_act=np.array([[14460.39996858],[14468.39996858],[14476.39996858],[14468.39996858]])
 
-        # print(quad_act, quad_act.shape)
         obs, reward, terminated, truncated, info = env.step(quad_act)
 
         info = {
@@ -76,8 +69,8 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
 
 if __name__ == "__main__":
     mpc_file = "mpc.so"
-    track_path = "../assets/tracks/thesis-tracks/straight_track.csv"
-    # track_path = "../assets/tracks/circle_track.csv"
+    # track_path = "../assets/tracks/thesis-tracks/straight_track.csv"
+    track_path = "../assets/tracks/circle_track.csv"
     # track_path = "../assets/tracks/thesis-tracks/dive_track.csv"
 
     gui = True

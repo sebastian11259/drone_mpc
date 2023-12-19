@@ -92,7 +92,7 @@ class MPC(object):
         self._x = ca.vertcat(px, py, pz, qw, qx, qy, qz, vx, vy, vz, wx, wy, wz)
 
 
-
+        # -- point to linearize
         px_, py_, pz_ = ca.SX.sym('px_'), ca.SX.sym('py_'), ca.SX.sym('pz_')
         #
         qw_, qx_, qy_, qz_ = ca.SX.sym('qw_'), ca.SX.sym('qx_'), ca.SX.sym('qy_'), \
@@ -103,10 +103,10 @@ class MPC(object):
         #
         wx_, wy_, wz_ = ca.SX.sym('wx_'), ca.SX.sym('wy_'), ca.SX.sym('wz_')
 
-
-
         # -- conctenated vector
         self._x_ = ca.vertcat(px_, py_, pz_, qw_, qx_, qy_, qz_, vx_, vy_, vz_, wx_, wy_, wz_)
+
+        # -- inputs to linearize
 
         r1_, r2_, r3_, r4_ = ca.SX.sym('r1_'), ca.SX.sym('r2_'), \
             ca.SX.sym('r3_'), ca.SX.sym('r4_')
@@ -131,15 +131,12 @@ class MPC(object):
         Jy = 1.4e-5
         Jz = 2.17e-5
 
-        # TODO - thrust = [0, 0, equation]
-        # thrust = self.CT * (r1**2 + r2**2 + r3**2 + r4**2) / self.m
-        # Mx = self.d * self.CT / ca.sqrt(2) * (r2**2 - r4**2)
-        # My = self.d * self.CT / ca.sqrt(2) * (-r1**2 + r3**2)
-        # Mz = self.CD * (-r1**2 + r2**2 - r3**2 + r4**2)
+
         thrust = self.KF * (r1 ** 2 + r2 ** 2 + r3 ** 2 + r4 ** 2) / self.m
         Mx = self.d * self.KF * (r2 ** 2 - r4 ** 2)
         My = self.d * self.KF * (-r1 ** 2 + r3 ** 2)
         Mz = self.KM * (-r1 ** 2 + r2 ** 2 - r3 ** 2 + r4 ** 2)
+
         # -- conctenated vector
         self._u = ca.vertcat(r1, r2, r3, r4)
 
@@ -147,7 +144,6 @@ class MPC(object):
         # --------- System Dynamics ---------
         # # # # # # # # # # # # # # # # # # #
 
-        # TODO - change for my dynamics
         x_dot = ca.vertcat(
             vx_,
             vy_,
@@ -162,8 +158,9 @@ class MPC(object):
             (Mx_ + Jz * wz_ * wy_ - Jy * wy_ * wz_) / Jx,
             (My_ + Jx * wx_ * wz_ - Jz * wz_ * wx_) / Jy,
             (Mz_ + Jy * wy_ * wx_ - Jx * wx_ * wy_) / Jz
-            # (1 - 2*qx*qx - 2*qy*qy) * thrust - self._gz
         )
+
+        # -- Taylor first order
 
         x_lin = ca.vertcat(
             vx - vx_,
@@ -181,9 +178,8 @@ class MPC(object):
             ((Jy - Jx) / Jz) * (wy_ * (wx - wx_) + wx_ * (wy - wy_)) + (1 / Jz) * (Mz - Mz_)
         )
 
-        #
-        # self.f = ca.Function('f', [self._x, self._u], [x_dot], ['x', 'u'], ['ode'])
-        # self.f_ = ca.Function("f_", [self._x_, self._u_], [x_dot])
+        # -- Linearized state space
+
         self.f = ca.Function('f', [self._x, self._u, self._x_, self._u_], [x_dot + x_lin])
 
         # # Fold
@@ -222,7 +218,6 @@ class MPC(object):
         self.lbg = []  # lower bound of constrait functions, lbg < g
         self.ubg = []  # upper bound of constrait functions, g < ubg
 
-        self.u_last = self._quad_u0
 
         u_min = [self._rpm_min, self._rpm_min, self._rpm_min, self._rpm_min]
         u_max = [self._rpm_max, self._rpm_max, self._rpm_max, self._rpm_max]
@@ -233,12 +228,11 @@ class MPC(object):
         g_min = [0 for _ in range(self._s_dim)]
         g_max = [0 for _ in range(self._s_dim)]
 
-        # TODO -why +3
         P = ca.SX.sym("P", self._s_dim + (self._s_dim) * self._N + 4)
         X = ca.SX.sym("X", self._s_dim, self._N + 1)
         U = ca.SX.sym("U", self._u_dim, self._N)
-        #
-        # X_next = fMap(X[:, :self._N], U, P[0:self._s_dim], U[:, 0])
+
+        # -- Control in previous iteration
 
         self.U_ = ca.SX.sym('U_',4,self._N)
         self.U_[:,0] = P[-4:]
@@ -348,8 +342,8 @@ class MPC(object):
             "ipopt.acceptable_tol": 1e-5,
             "ipopt.max_iter": 500,
             "ipopt.warm_start_init_point": "yes",
-            "ipopt.print_level": 5,
-            "print_time": True
+            "ipopt.print_level": 0,
+            "print_time": False
         }
 
         # # TODO - generate a c code file
@@ -387,16 +381,6 @@ class MPC(object):
         #
         x0_array = np.reshape(sol_x0[:-self._s_dim], newshape=(-1, self._s_dim + self._u_dim))
 
-        # print(x0_array)
-
-        r1, r2, r3, r4 = opt_u
-
-        self.u_last = opt_u
-
-        self.U_[:, 0] = opt_u
-
-        print(self.U_)
-
         # return optimal action, and a sequence of predicted optimal trajectory.
         return opt_u, x0_array
 
@@ -418,6 +402,8 @@ class MPC(object):
         #     #
         #     X = X + (k1 + 2 * k2 + 2 * k3 + k4) / 6
         #     # Fold
+
+        # ------ Euler method
         for _ in range(M):
             X = X + DT * self.f(X, U, X0, U_)
 
