@@ -1,0 +1,152 @@
+<?xml version="1.0" ?>
+<robot name="test.urdf">
+
+
+  <material name="Red">
+    <color rgba="1.0 0 0 1.0"/>
+  </material>
+
+  <material name="Green">
+    <color rgba="0 1.0 0 1.0"/>
+  </material>
+
+  <material name="Blue">
+    <color rgba="0 0 1.0 1.0"/>
+  </material>
+
+  <material name="Yellow">
+    <color rgba="1.0 1.0 0 1.0"/>
+  </material>
+
+
+
+  <link name="bottomBar">
+    <visual>
+      <origin rpy="1.5707 1.5707 0" xyz="0 0 -0.45"/>
+      <geometry>
+        <box size=".1 .1 1" />
+      </geometry>
+      <material name="Green"/>
+    </visual>
+
+    <collision>
+      <origin rpy="1.5707 1.5707 0" xyz="0 0 -0.45"/>
+      <geometry>
+        <box size=".1 .1 1" />
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="0.4" ixy="0.0" ixz="0.0" iyy="0.4" iyz="0.0" izz="0.2"/>
+    </inertial>
+
+  </link>
+
+  <link name="topBar">
+    <visual>
+      <origin rpy="1.5707 1.5707 0" xyz="0 0 0.45"/>
+      <geometry>
+        <box size=".1 .1 1" />
+      </geometry>
+      <material name="Blue"/>
+    </visual>
+
+    <collision>
+      <origin rpy="1.5707 1.5707 0" xyz="0 0 0.45"/>
+      <geometry>
+        <box size=".1 .1 1" />
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="0.4" ixy="0.0" ixz="0.0" iyy="0.4" iyz="0.0" izz="0.2"/>
+    </inertial>
+
+  </link>
+
+  <link name="leftBar">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 -0.45 0"/>
+      <geometry>
+        <box size=".1 .1 0.8" />
+      </geometry>
+      <material name="Yellow"/>
+    </visual>
+
+    <collision>
+      <origin rpy="0 0 0" xyz="0 -0.45 0"/>
+      <geometry>
+        <box size=".1 .1 1" />
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="0.4" ixy="0.0" ixz="0.0" iyy="0.4" iyz="0.0" izz="0.2"/>
+    </inertial>
+
+  </link>
+
+  <link name="rightBar">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0.45 0"/>
+      <geometry>
+        <box size=".1 .1 0.8" />
+      </geometry>
+      <material name="Yellow"/>
+    </visual>
+
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0.45 0"/>
+      <geometry>
+        <box size=".1 .1 1" />
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="0.4" ixy="0.0" ixz="0.0" iyy="0.4" iyz="0.0" izz="0.2"/>
+    </inertial>
+
+  </link>
+
+  <link name="arrow">
+    <visual>
+      <origin rpy="0 -1.5707 0" xyz="-0.4 0 0"/>
+      <geometry>
+        <mesh filename="arrow.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="Red"/>
+    </visual>
+
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="0.4" ixy="0.0" ixz="0.0" iyy="0.4" iyz="0.0" izz="0.2"/>
+    </inertial>
+
+  </link>
+
+  <joint name="bottom-left" type="fixed">
+    <parent link="bottomBar"/>
+    <child link="leftBar"/>
+  </joint>
+
+  <joint name="left-top" type="fixed">
+    <parent link="leftBar"/>
+    <child link="topBar"/>
+  </joint>
+
+  <joint name="top-right" type="fixed">
+    <parent link="topBar"/>
+    <child link="rightBar"/>
+  </joint>
+
+  <joint name="arrow-to-bar" type="fixed">
+    <parent link="topBar"/>
+    <child link="arrow"/>
+  </joint>
+
+
+</robot>
