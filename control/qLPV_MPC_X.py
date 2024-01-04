@@ -44,9 +44,6 @@ class MPC(object):
         self.m = 0.027
         self.KF = 3.16e-10
         self.KM = 7.94e-12
-        # self.KF = 3.1582e-10
-        # self.KM = 7.9379e-12
-
 
         #
         # state dimension (px, py, pz,           # quadrotor position
@@ -105,6 +102,8 @@ class MPC(object):
         # --------- Control Command ------------
         # # # # # # # # # # # # # # # # # # #
 
+        r1, r2, r3, r4 = ca.SX.sym('r1'), ca.SX.sym('r2'), \
+            ca.SX.sym('r3'), ca.SX.sym('r4')
 
         Jx = 1.4e-5
         Jy = 1.4e-5
@@ -112,8 +111,13 @@ class MPC(object):
 
         thrust, Mx, My, Mz = ca.SX.sym('thrust'), ca.SX.sym('Mx'), ca.SX.sym('My'), ca.SX.sym('Mz')
 
-        # r1, r2, r3, r4 = ca.SX.sym('r1'), ca.SX.sym('r2'), \
-        #     ca.SX.sym('r3'), ca.SX.sym('r4')
+        # TODO - thrust = [0, 0, equation]
+        # thrust = self.CT * (r1**2 + r2**2 + r3**2 + r4**2) / self.m
+        # Mx = self.d * self.CT / ca.sqrt(2) * (r2**2 - r4**2)
+        # My = self.d * self.CT / ca.sqrt(2) * (-r1**2 + r3**2)
+        # Mz = self.CD * (-r1**2 + r2**2 - r3**2 + r4**2)
+
+
 
         # thrust = self.KF * (r1 ** 2 + r2 ** 2 + r3 ** 2 + r4 ** 2) / self.m
         # Mx = self.d * self.KF * (r2 ** 2 - r4 ** 2)
@@ -122,22 +126,34 @@ class MPC(object):
 
 
 
-        # Matrix to compute (r1-r4)**2
+        # inv = np.array([
+        #     [self.m / (4 * self.KF), 0, -1 / (2 * self.d * self.KF), -1 / (4 * self.KM)],
+        #     [self.m / (4 * self.KF), 1 / (2 * self.d * self.KF), 0, 1 / (4 * self.KM)],
+        #     [self.m / (4 * self.KF), 0, 1 / (2 * self.d * self.KF), -1 / (4 * self.KM)],
+        #     [self.m / (4 * self.KF), -1 / (2 * self.d * self.KF), 0, 1 / (4 * self.KM)]
+        # ])
+
         inv = np.array([
-            [self.m / (4 * self.KF), 0, -1 / (2 * self.d * self.KF), -1 / (4 * self.KM)],
-            [self.m / (4 * self.KF), 1 / (2 * self.d * self.KF), 0, 1 / (4 * self.KM)],
-            [self.m / (4 * self.KF), 0, 1 / (2 * self.d * self.KF), -1 / (4 * self.KM)],
-            [self.m / (4 * self.KF), -1 / (2 * self.d * self.KF), 0, 1 / (4 * self.KM)]
+            [self.m / (4 * self.KF), -ca.sqrt(2) / (4 * self.d * self.KF),  -ca.sqrt(2) / (4 * self.d * self.KF),
+             -1 / (4 * self.KM)],
+            [self.m / (4 * self.KF), -ca.sqrt(2) / (4 * self.d * self.KF), ca.sqrt(2) / (4 * self.d * self.KF),
+             1 / (4 * self.KM)],
+            [self.m / (4 * self.KF), ca.sqrt(2) / (4 * self.d * self.KF), ca.sqrt(2) / (4 * self.d * self.KF),
+             -1 / (4 * self.KM)],
+            [self.m / (4 * self.KF), ca.sqrt(2) / (4 * self.d * self.KF), -ca.sqrt(2) / (4 * self.d * self.KF),
+             1 / (4 * self.KM)]
+
         ])
+
+
+
 
         self.inv = ca.SX(inv)
 
-
-        # Control Vector
+        # -- conctenated vector
+        # self._u = ca.vertcat(r1, r2, r3, r4)
 
         self._u = ca.vertcat(thrust, Mx, My, Mz)
-
-        # Min-Max control
 
         u_min = [0,
                  self.d * self.KF * (self._rpm_min ** 2 - self._rpm_max ** 2),
@@ -152,26 +168,24 @@ class MPC(object):
                  ]
 
 
-        # Function to compute rpm from Thrust, Mx, My, mz
 
         self.rpm = ca.Function('rpm', [self._u], [np.sqrt(ca.fabs(self.inv @ self._u))] )
 
+        # print(u_max)
+        # print(self.rpm([22.04869186133333,0,0,0]))
 
         # # # # # # # # # # # # # # # # # # #
         # --------- System Dynamics ---------
         # # # # # # # # # # # # # # # # # # #
 
 
-        # Scheduling variables
         self.P1, self.P2, self.P3, self.P4, self.P5, self.P6 = ca.SX.sym('P1'), ca.SX.sym('P2'), ca.SX.sym('P3'), ca.SX.sym('P4'), ca.SX.sym('P5'), ca.SX.sym('P6')
+        # self.P1, self.P2, self.P3, self.P4, self.P5, self.P6 = qw, qx, qy, qz, wx, wy
 
         self.Pi = ca.vertcat(self.P1, self.P2, self.P3, self.P4, self.P5, self.P6)
 
-
         E = 0.01
 
-
-        # A matrix
 
         self.A = ca.SX.zeros(13,13)
 
@@ -189,7 +203,7 @@ class MPC(object):
         self.A[11,12] = (Jx-Jz)/Jy * self.P5
         self.A[12,11] = (Jy-Jx)/Jz * self.P5
 
-        # B matrix
+
 
         self.B = ca.SX.zeros(13,5)
 
@@ -200,23 +214,44 @@ class MPC(object):
         self.B[11,2] = 1/Jy
         self.B[12,3] = 1/Jz
 
-        # self.fa = ca.Function('fa', [self.Pi], [self.A], ['Pi'], ['Ad'])
-        # self.fb = ca.Function('fb', [self.Pi], [self.B], ['Pi'], ['Bd'])
+        self.fa = ca.Function('fa', [self.Pi], [self.A], ['Pi'], ['Ad'])
+        self.fb = ca.Function('fb', [self.Pi], [self.B], ['Pi'], ['Bd'])
 
 
         self.improve = 4
 
-        # Discrete A and B matrix with Pi parameter
-
         self.fa = ca.Function('fad', [self.Pi], [ca.SX.eye(13) +  (self.A * (self._dt/self.improve))])
         self.fb = ca.Function('fbd', [self.Pi], [self.B * (self._dt/self.improve)])
 
-        # Weight matrix for error
 
-        self.K = np.diag([0.2,0.2,0.2,0,0,0,0,0,0,0,0,0,0])
+
+        # TODO - change for my dynamics
+        # x_dot = ca.vertcat(
+        #     vx,
+        #     vy,
+        #     vz,
+        #     0.5 * (-wx * self.P2 - wy * self.P3 - wz * self.P4),
+        #     0.5 * (wx * self.P1 + wz * self.P3 - wy * self.P4),
+        #     0.5 * (wy * self.P1 - wz * self.P2 + wx * self.P4),
+        #     0.5 * (wz * self.P1 + wy * self.P2 - wx * self.P3),
+        #     2 * (self.P1 * self.P3 + self.P2 * self.P4) * thrust + E*(qy + qz),
+        #     2 * (self.P3 * self.P4 - self.P1 * self.P2) * thrust + E*(qx * qz),
+        #     (self.P1 * self.P1 - self.P2 * self.P2 - self.P3 * self.P3 + self.P4 * self.P4) * thrust - self._gz + E*(qx + qy),
+        #     (Mx + Jz * wz * self.P6 - Jy * self.P6 * wz) / Jx,
+        #     (My + Jx * self.P4 * wz - Jz * wz * self.P4) / Jy,
+        #     (Mz + Jy * wy * self.P4 - Jx * self.P4 * wy) / Jz
+        #     # (1 - 2*self.P2*self.P2 - 2*self.P3*self.P3) * thrust - self._gz
+        # )
+        #
+        # #
+        # self.f = ca.Function('f', [self._x, self._u, self.Pi], [x_dot], ['x', 'u', 'p'], ['ode'])
 
 
         # # Fold
+        # F = self.sys_dynamics(self._dt)
+        # fMap = F.map(self._N, "openmp")  # parallel
+
+        # fMap = self.sys_dynamics1()
 
         F = self.sys_dynamics2()
         fMap = F.map(self._N, "openmp")  # parallel
@@ -253,6 +288,11 @@ class MPC(object):
         self.lbg = []  # lower bound of constrait functions, lbg < g
         self.ubg = []  # upper bound of constrait functions, g < ubg
 
+        # u_min = [self._rpm_min, self._rpm_min, self._rpm_min, self._rpm_min]
+        # u_max = [self._rpm_max, self._rpm_max, self._rpm_max, self._rpm_max]
+
+
+
         x_bound = ca.inf
         x_min = [-x_bound for _ in range(self._s_dim)]
         x_max = [+x_bound for _ in range(self._s_dim)]
@@ -268,12 +308,12 @@ class MPC(object):
         g_6_max = [0 for _ in range(6)]
 
         # TODO -why +3
-        P = ca.SX.sym("P", self._s_dim + (self._s_dim) * self._N + self._s_dim)
+        P = ca.SX.sym("P", self._s_dim + (self._s_dim) * self._N)
         X = ca.SX.sym("X", self._s_dim, self._N + 1)
         U = ca.SX.sym("U", self._u_dim, self._N)
         Pi = ca.SX.sym("Pi", 6, self._N + 1)
         #
-        X_next = fMap(X[:, :self._N], U, Pi[:, :self._N], P[-13:])
+        X_next = fMap(X[:, :self._N], U, Pi[:, :self._N])
 
         # "Lift" initial conditions
         self.nlp_w += [X[:, 0]]
@@ -391,6 +431,7 @@ class MPC(object):
 
         # eee = self.sys_dynamics1()
 
+        # print(eee)
 
         # self.solver = ca.qpsol("solver",'qpoases', nlp_dict)
 
@@ -407,6 +448,19 @@ class MPC(object):
         # # # # # # # # # # # # # # # #
         # -------- solve NLP ---------
         # # # # # # # # # # # # # # # #
+        # TODO - shouldn't it be x0 first elemnt from a tracjetory ???
+
+
+
+
+        # self.P1 = ref_states[3]
+        # self.P2 = ref_states[4]
+        # self.P3 = ref_states[5]
+        # self.P4 = ref_states[6]
+        # self.P5 = ref_states[10]
+        # self.P6 = ref_states[11]
+        # self._initDynamics()
+
 
         self.sol = self.solver(
             x0=self.nlp_w0,
@@ -428,9 +482,18 @@ class MPC(object):
 
         x0_array = np.reshape(sol_x0[:-(self._s_dim+6)], newshape=(-1, self._s_dim + self._u_dim + 6))
 
-
         # return optimal action, and a sequence of predicted optimal trajectory.
-        return self.rpm(opt_u), x0_array
+        # print('Eeee', ref_states[3:7], 'aa', ref_states[10:11])
+
+        # print(ref_states)
+        # print('aaaaaaaaaaaaaaaaaaa\n',x0_array)
+
+        # print('bbbbbbbbbbbbbbbbbbb', opt_u)
+
+        # print(self.inv @ opt_u)
+
+
+        return self.rpm(opt_u) #,x0_array
 
     def sys_dynamics(self, dt):
         M = 10  # refinement
@@ -449,43 +512,55 @@ class MPC(object):
             #
             X = X + (k1 + 2 * k2 + 2 * k3 + k4) / 6
             # Fold
+            # print(X)
         F = ca.Function('F', [X0, U, P], [X])
         return F
 
+    def sys_dynamics1(self):
+        X0 = ca.SX.sym("X", self._s_dim)
+        X = ca.SX.sym("X", self._s_dim, self._N)
+        P = ca.SX.sym("P", 6, self._N)
+        U = ca.SX.sym("U", self._u_dim, self._N)
+
+        for i in range(self._N):
+            A1 = self.fa(P[:,0])
+
+            for j in range(i):
+                A1 = A1 @ self.fa(P[:, j+1])
+
+            X[:,i] =  A1 @ X0
+
+            B = self.fb(P[:, i])
+
+            for s in range(i):
+                A2 = self.fa(P[:, s+1])
+                for j in range(s+1,i):
+                    A2 = A2 @ self.fa(P[:,j+1])
+                AB = A2 @ self.fb(P[:, s])
+
+                X[:, i] = X[:,i] + AB @ ca.vertcat(U[:, s], self._gz)
+
+            X[:, i] = X[:,i] + B @ ca.vertcat(U[:, i], self._gz)
+
+            # print(X[:,i])
 
 
-    # def sys_dynamics1(self):
-    #     X0 = ca.SX.sym("X", self._s_dim)
-    #     X = ca.SX.sym("X", self._s_dim, self._N)
-    #     P = ca.SX.sym("P", 6, self._N)
-    #     U = ca.SX.sym("U", self._u_dim, self._N)
-    #
-    #     X[:, 0] = self.fa(P[:, 0]) @ X0 + self.fb(P[:,0]) @ ca.vertcat(U[:, 0], self._gz)
-    #
-    #     for i in range(1, self._N):
-    #         X[:,i] = self.fa(P[:,i]) @ X[:, i-1] + self.fb(P[:,i]) @ ca.vertcat(U[:,i-1], self._gz)
-    #
-    #
-    #
-    #
-    #     F = ca.Function('F', [X0, U, P], [X])
-    #     return F
 
-    # Prediction: X(k+1) = A(k)X(k) + B(k)U(k)
+
+        F = ca.Function('F', [X0, U, P], [X])
+        return F
+
     def sys_dynamics2(self):
         X0 = ca.SX.sym("X", self._s_dim)
         U = ca.SX.sym("U", self._u_dim)
         P = ca.SX.sym("P", 6)
-        E = ca.SX.sym("Err", self._s_dim)
 
         X=X0
         # #
         for i in range(self.improve):
             X = self.fa(P) @ X + self.fb(P) @ ca.vertcat(U, self._gz)
 
-        # X = X-(self.K@E)
-
-        F = ca.Function('F', [X0, U, P, E], [X])
+        F = ca.Function('F', [X0, U, P], [X])
         return F
 
 

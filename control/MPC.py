@@ -328,7 +328,7 @@ class MPC(object):
         #
         x0_array = np.reshape(sol_x0[:-self._s_dim], newshape=(-1, self._s_dim + self._u_dim))
 
-        print(x0_array)
+        # print(x0_array)
 
         r1, r2, r3, r4 = opt_u
 

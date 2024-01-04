@@ -12,7 +12,7 @@ from drone_sim.gym_pybullet_drones.utils.enums import DroneModel
 
 
 def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
-    _T = 0.5
+    _T = 1
     _dt = 0.05
     _N = _T / _dt
     pyb_freq = 250
@@ -25,13 +25,17 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         ctrl_freq = ctrl_freq,
         track_path=track_path,
         drone_model=DroneModel.CF2P,
-        kt=1000
+        kt=1000,
+        wind=True,
+        wind_value=[0, 0.1, 0]
     )
 
     infos = []
     # env.step_counter
 
     compute_time=0
+
+    error = [0 for _ in range(13)]
 
     obs, _ = env.reset()
     t = 0
@@ -45,22 +49,27 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         # print(obs)
         # print(ref_traj[0:13])
 
-        # print("OBS: ", obs[0:3])
-        # print("REF: ", ref_traj[0:3])
+        # print ("ERROR: ", error)
+        # print("OBS: ", obs[0:13])
+        # print("REF: ", ref_traj[0:13])
         # print("------------------------------------------------------------------------------------")
 
-        ref_traj = obs + ref_traj
+        ref_traj = obs + ref_traj + error
 
         # quad_act, pred_traj = mpc.solve(ref_traj)
 
         start = time.time()
-        quad_act = mpc.solve(ref_traj)
+        quad_act, pred_traj = mpc.solve(ref_traj)
         compute_time += time.time() - start
 
-
+        # print(pred_traj[0:2])
+        # print("------------------------------------------------------------------------------------")
 
         # print(quad_act, quad_act.shape)
         obs, reward, terminated, truncated, info = env.step(quad_act)
+
+        # error = [ref_traj[13+i] - obs[i] for i in range(13)]
+        error = [pred_traj[1,i] - obs[i] for i in range(13)]
 
         info = {
             "quad_obs": obs,

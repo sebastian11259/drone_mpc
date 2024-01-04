@@ -45,7 +45,9 @@ class MPCAviary(BaseAviary):
                  user_debug_gui=True,
                  vision_attributes=False,
                  output_folder='results',
-                 kt = 50000
+                 kt = 50000,
+                 wind = False,
+                 wind_value = [0,0.001,0]
                  ):
         """Initialization of a generic aviary environment.
 
@@ -80,6 +82,8 @@ class MPCAviary(BaseAviary):
 
         """
         self._kt = kt
+        self._wind = wind
+        self._wind_value = wind_value
 
         #### Constants #############################################
         self.G = 9.8
@@ -791,6 +795,19 @@ class MPCAviary(BaseAviary):
                               physicsClientId=self.CLIENT
                               )
 
+
+
+        quat = self.quat[0]
+
+        if (self._wind == True):
+            p.applyExternalForce(self.DRONE_IDS[nth_drone],
+                                 -1,
+                                 forceObj=p.invertTransform(self._wind_value, [quat[1], -quat[0], -quat[3], quat[2]])[0],
+                                 posObj=[0, 0, 0],
+                                 flags=p.LINK_FRAME,
+                                 physicsClientId=self.CLIENT
+                                 )
+
     ################################################################################
 
     def _groundEffect(self,
@@ -1127,7 +1144,7 @@ class MPCAviary(BaseAviary):
         obs_upper_bound = np.array([[np.inf, np.inf, np.inf, 1., 1., 1., 1., np.pi, np.pi, np.pi, np.inf, np.inf,
                                      np.inf, np.inf, np.inf, np.inf, self.MAX_RPM, self.MAX_RPM, self.MAX_RPM,
                                      self.MAX_RPM] for i in range(self.NUM_DRONES)])
-        return spaces.Box(low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32)
+        return False
 
     ################################################################################
 
