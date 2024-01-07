@@ -1,19 +1,17 @@
-import time
-
 import pybullet as p
 import numpy as np
-
+import time
 
 from env.MPCAviary import MPCAviary
-from control.qLPV_MPC import MPC
+from control_X_config.MPC_Taylor_X import MPC
 
 
 from drone_sim.gym_pybullet_drones.utils.enums import DroneModel
 
 
 def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
-    _T = 1
-    _dt = 0.05
+    _T = 0.25
+    _dt = 0.01
     _N = _T / _dt
     pyb_freq = 250
     ctrl_freq = 50
@@ -24,18 +22,16 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         pyb_freq = pyb_freq,
         ctrl_freq = ctrl_freq,
         track_path=track_path,
-        drone_model=DroneModel.CF2P,
-        kt=1000,
-        wind=True,
-        wind_value=[0, 0.1, 0]
+        drone_model=DroneModel.CF2X,
+        kt=1000
     )
 
     infos = []
     # env.step_counter
 
-    compute_time=0
+    compute_time = 0
 
-    error = [0 for _ in range(13)]
+    quad_act = [14468.4, 14468.4, 14468.4, 14468.4]
 
     obs, _ = env.reset()
     t = 0
@@ -46,35 +42,29 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
 
         obs = obs.tolist()
 
+        # print("OBS: ", obs[0:3])
+        # print("REF: ", ref_traj[0:3])
+        # print("------------------------------------------------------------------------------------")
+
         # print(obs)
         # print(ref_traj[0:13])
 
-        # print ("ERROR: ", error)
-        # print("OBS: ", obs[0:13])
-        # print("REF: ", ref_traj[0:13])
-        # print("------------------------------------------------------------------------------------")
+        ref_traj = obs + ref_traj + list(quad_act)
 
-        ref_traj = obs + ref_traj + error
 
-        # quad_act, pred_traj = mpc.solve(ref_traj)
 
         start = time.time()
         quad_act, pred_traj = mpc.solve(ref_traj)
         compute_time += time.time() - start
 
-        # print(pred_traj[0:2])
-        # print("------------------------------------------------------------------------------------")
 
-        # print(quad_act, quad_act.shape)
+
         obs, reward, terminated, truncated, info = env.step(quad_act)
-
-        # error = [ref_traj[13+i] - obs[i] for i in range(13)]
-        error = [pred_traj[1,i] - obs[i] for i in range(13)]
 
         info = {
             "quad_obs": obs,
             "quad_act": quad_act,
-            # "pred_traj": pred_traj,
+            "pred_traj": pred_traj,
             "ref_traj": ref_traj
         }
         infos.append(info)
@@ -94,12 +84,11 @@ if __name__ == "__main__":
     # track_path = "../assets/tracks/thesis-tracks/straight_track.csv"
     track_path = "../assets/tracks/circle_track.csv"
     # track_path = "../assets/tracks/thesis-tracks/dive_track.csv"
+
     gui = True
 
-    i, t, t_, ct= run_mpc(track_path, mpc_file, gui)
-    
+    i, t, t_, ct = run_mpc(track_path, mpc_file, gui)
+
     print('Czas przelotu:   ', t)
     print('Czas planera:   ', t_)
     print('Czas obliczeń: ', ct)
-
-

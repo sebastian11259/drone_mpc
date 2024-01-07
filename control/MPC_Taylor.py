@@ -16,11 +16,11 @@ class MPC(object):
     Nonlinear MPC - edited based on https://github.com/uzh-rpg/high_mpc/blob/master/high_mpc/mpc/mpc.py
     """
 
-    def __init__(self, T, dt, so_path='./nmpc.so'):
+    def __init__(self, T, dt, divisor = 4):
         """
         Nonlinear MPC for quadrotor control
         """
-        self.so_path = so_path
+        self.divisor = divisor
 
         # Time constant
         self._T = T
@@ -175,7 +175,7 @@ class MPC(object):
             0.5 * T_ * (qw_ * (qw - qw_) - qx_ * (qx - qx_) - qy_ * (qy - qy_) + qz_ * (qz - qz_)) + (qw_ ** 2 - qx_ ** 2 - qy_ ** 2 + qz_ ** 2) * (thrust - T_),
             ((Jz - Jy) / Jx) * (wz_ * (wy - wy_) + wy_ * (wz - wz_)) + (1 / Jx) * (Mx - Mx_),
             ((Jx - Jz) / Jy) * (wz_ * (wx - wx_) + wx_ * (wz - wz_)) + (1 / Jy) * (My - My_),
-            ((Jy - Jx) / Jz) * (wy_ * (wx - wx_) + wx_ * (wy - wy_)) + (1 / Jz) * (Mz - Mz_)
+            ((Jy - Jx) / Jz) * (wy_ * (wx - wx_) + wx_ * (wy - wy_)) + (1 / Jz) * (Mz - Mz_) 
         )
 
         # -- Linearized state space
@@ -385,7 +385,7 @@ class MPC(object):
         return opt_u, x0_array
 
     def sys_dynamics(self, dt):
-        M = 10  # refinement
+        M = self.divisor
         DT = dt / M
         X0 = ca.SX.sym("X", self._s_dim)
         U = ca.SX.sym("U", self._u_dim)
@@ -412,4 +412,4 @@ class MPC(object):
 
 
 if __name__ == "__main__":
-    mpc = MPC(1, 0.1, so_path="race_rl/control/mpc.so")
+    mpc = MPC(1, 0.1)

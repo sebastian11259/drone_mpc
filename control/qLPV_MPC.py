@@ -18,11 +18,11 @@ class MPC(object):
     Nonlinear MPC - edited based on https://github.com/uzh-rpg/high_mpc/blob/master/high_mpc/mpc/mpc.py
     """
 
-    def __init__(self, T, dt, so_path='./nmpc.so'):
+    def __init__(self, T, dt, divisor = 4):
         """
         Nonlinear MPC for quadrotor control
         """
-        self.so_path = so_path
+        self.divisor = divisor
 
         # Time constant
         self._T = T
@@ -204,12 +204,11 @@ class MPC(object):
         # self.fb = ca.Function('fb', [self.Pi], [self.B], ['Pi'], ['Bd'])
 
 
-        self.improve = 4
 
         # Discrete A and B matrix with Pi parameter
 
-        self.fa = ca.Function('fad', [self.Pi], [ca.SX.eye(13) +  (self.A * (self._dt/self.improve))])
-        self.fb = ca.Function('fbd', [self.Pi], [self.B * (self._dt/self.improve)])
+        self.fa = ca.Function('fad', [self.Pi], [ca.SX.eye(13) +  (self.A * (self._dt/self.divisor))])
+        self.fb = ca.Function('fbd', [self.Pi], [self.B * (self._dt/self.divisor)])
 
         # Weight matrix for error
 
@@ -480,7 +479,7 @@ class MPC(object):
 
         X=X0
         # #
-        for i in range(self.improve):
+        for i in range(self.divisor):
             X = self.fa(P) @ X + self.fb(P) @ ca.vertcat(U, self._gz)
 
         # X = X-(self.K@E)
@@ -490,4 +489,4 @@ class MPC(object):
 
 
 if __name__ == "__main__":
-    mpc = MPC(1, 0.1, so_path="race_rl/control/mpc.so")
+    mpc = MPC(1, 0.1)

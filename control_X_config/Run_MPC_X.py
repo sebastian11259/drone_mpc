@@ -1,9 +1,7 @@
-import pybullet as p
-import numpy as np
 import time
 
 from env.MPCAviary import MPCAviary
-from control.MPC import MPC
+from control_X_config.MPC_X import MPC
 
 
 from drone_sim.gym_pybullet_drones.utils.enums import DroneModel
@@ -22,10 +20,10 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         pyb_freq = pyb_freq,
         ctrl_freq = ctrl_freq,
         track_path=track_path,
-        drone_model=DroneModel.CF2P,
+        drone_model=DroneModel.CF2X,
         kt=1000,
-        wind=True,
-        wind_value=[0,0.02,0]  # wind vector [x,y,z]
+        wind=False,
+        wind_value=[0,0,0]  # wind vector [x,y,z]
     )
 
     infos = []

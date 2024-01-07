@@ -16,11 +16,11 @@ class MPC(object):
     Nonlinear MPC - edited based on https://github.com/uzh-rpg/high_mpc/blob/master/high_mpc/mpc/mpc.py
     """
 
-    def __init__(self, T, dt, divisor = 4):
+    def __init__(self, T, dt, so_path='./nmpc.so'):
         """
         Nonlinear MPC for quadrotor control
         """
-        self.divisor = divisor
+        self.so_path = so_path
 
         # Time constant
         self._T = T
@@ -108,10 +108,19 @@ class MPC(object):
         # Mx = self.d * self.CT / ca.sqrt(2) * (r2**2 - r4**2)
         # My = self.d * self.CT / ca.sqrt(2) * (-r1**2 + r3**2)
         # Mz = self.CD * (-r1**2 + r2**2 - r3**2 + r4**2)
+
+        # thrust = self.KF * (r1 ** 2 + r2 ** 2 + r3 ** 2 + r4 ** 2) / self.m
+        # Mx = self.d * self.KF * (r2 ** 2 - r4 ** 2)
+        # My = self.d * self.KF * (-r1 ** 2 + r3 ** 2)
+        # Mz = self.KM * (-r1 ** 2 + r2 ** 2 - r3 ** 2 + r4 ** 2)
+
         thrust = self.KF * (r1 ** 2 + r2 ** 2 + r3 ** 2 + r4 ** 2) / self.m
-        Mx = self.d * self.KF * (r2 ** 2 - r4 ** 2)
-        My = self.d * self.KF * (-r1 ** 2 + r3 ** 2)
+        Mx = self.d * self.KF / ca.sqrt(2) * (-r1 ** 2 - r2 ** 2 + r3 ** 2 + r4 ** 2)
+        My = self.d * self.KF / ca.sqrt(2) * (-r1 ** 2 + r2 ** 2 + r3 ** 2 - r4 ** 2)
         Mz = self.KM * (-r1 ** 2 + r2 ** 2 - r3 ** 2 + r4 ** 2)
+
+
+
         # -- conctenated vector
         self._u = ca.vertcat(r1, r2, r3, r4)
 
@@ -328,7 +337,7 @@ class MPC(object):
         #
         x0_array = np.reshape(sol_x0[:-self._s_dim], newshape=(-1, self._s_dim + self._u_dim))
 
-        # print(x0_array)
+        print(x0_array)
 
         r1, r2, r3, r4 = opt_u
 
@@ -337,7 +346,7 @@ class MPC(object):
         return opt_u, x0_array
 
     def sys_dynamics(self, dt):
-        M = self.divisor
+        M = 4  # refinement
         DT = dt / M
         X0 = ca.SX.sym("X", self._s_dim)
         U = ca.SX.sym("U", self._u_dim)
@@ -357,4 +366,4 @@ class MPC(object):
 
 
 if __name__ == "__main__":
-    mpc = MPC(1, 0.1)
+    mpc = MPC(1, 0.1, so_path="race_rl/control/mpc.so")
