@@ -10,8 +10,8 @@ from drone_sim.gym_pybullet_drones.utils.enums import DroneModel
 
 
 def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
-    _T = 1
-    _dt = 0.05
+    _T = 0.2
+    _dt = 0.02
     _N = _T / _dt
     pyb_freq = 250
     ctrl_freq = 50
@@ -23,9 +23,9 @@ def run_mpc(track_path: str, mpc_file: str, gui: bool = True):
         ctrl_freq = ctrl_freq,
         track_path=track_path,
         drone_model=DroneModel.CF2P,
-        kt=1000,
-        wind=True,
-        wind_value=[0,0.02,0]  # wind vector [x,y,z]
+        kt=5000,
+        wind=False,
+        wind_value=[0,0,0]  # wind vector [x,y,z]
     )
 
     infos = []

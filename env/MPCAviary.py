@@ -47,7 +47,8 @@ class MPCAviary(BaseAviary):
                  output_folder='results',
                  kt = 50000,
                  wind = False,
-                 wind_value = [0,0.001,0]
+                 wind_value = [0,0.001,0],
+                 initialize_planner = True
                  ):
         """Initialization of a generic aviary environment.
 
@@ -274,8 +275,10 @@ class MPCAviary(BaseAviary):
 
         #### Path planner #####
 
-        points = convert_for_planer(track_path)
-        self.planer = PathPlanner(np.array(list(map(lambda x: x[0], points))), max_velocity=20, kt=self._kt)
+
+        if (initialize_planner):
+            points = convert_for_planer(track_path)
+            self.planer = PathPlanner(np.array(list(map(lambda x: x[0], points))), max_velocity=20, kt=self._kt)
 
     ################################################################################
 
